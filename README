@@ -1,0 +1,3 @@
+This is designed to push arbitrary data into a Swift endpoint. You should use cloudenvy to build an instance using the
+enclosed project file. You must define an openrc.sh file locally that exports the standard OpenStack environment
+variables: OS_USERNAME, OS_TENANT_NAME, OS_PASSWORD, and OS_AUTH_URL. It will be copied to the cloudenvy instance.
