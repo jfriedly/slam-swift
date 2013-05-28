@@ -12,7 +12,7 @@ import swiftclient
 
 parser = argparse.ArgumentParser(description='Slam a Swift endpoint.')
 parser.add_argument('--objects', type=int, default=1, help='Number of objects to upload across all workers.')
-parser.add_argument('--object-size', type=int, default=1, help='Size of each object to upload in MB.')
+parser.add_argument('--object-size', type=float, default=1, help='Size of each object to upload in MB.')
 parser.add_argument('--workers', type=int, default=1, help='Number of parallel processes to utilize.')
 parser.add_argument('--random', action='store_true', default=False,
                     help='Generate random data for every object. Otherwise, each worker will use the same random data for each object it uploads.')
@@ -23,7 +23,7 @@ AUTH_USER = os.getenv('OS_USERNAME')
 AUTH_PASSWORD = os.getenv('OS_PASSWORD')
 AUTH_TENANT_NAME = os.getenv('OS_TENANT_NAME')
 AUTH_URL = os.getenv('OS_AUTH_URL')
-TEST_OBJECT_SIZE = args.object_size * 1024 * 1024
+TEST_OBJECT_SIZE = int(args.object_size * 1024 * 1024)
 
 kc = keystoneclient.Client(username=AUTH_USER, password=AUTH_PASSWORD,
                            tenant_name=AUTH_TENANT_NAME, auth_url=AUTH_URL)
