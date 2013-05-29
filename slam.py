@@ -106,10 +106,11 @@ while True:
         time.sleep(3)
     else:
         break
+
+for proc in procs:
+    proc.join()
+
 time_taken = time.time() - time_start
 print '%d objects uploaded in %.2f seconds' % (args.objects, time_taken)
 print 'Transactions per second: %.2f' % (args.objects/time_taken)
 print 'Throughput (mb/s) %.2f' % (args.objects * args.object_size / time_taken)
-
-for proc in procs:
-    proc.join()
