@@ -1,7 +1,9 @@
 import argparse
+import ctypes
 import multiprocessing
 import os
 import Queue
+import random
 import tempfile
 import time
 import uuid
@@ -9,6 +11,10 @@ import uuid
 import keystoneclient.v2_0.client as keystoneclient
 import swiftclient
 
+# Gotta love StackOverfliw
+# http://stackoverflow.com/questions/4358285/is-there-a-faster-way-to-convert-an-arbitrary-large-integer-to-a-big-endian-sequ/4358429#4358429
+PyLong_AsByteArray = ctypes.pythonapi._PyLong_AsByteArray
+PyLong_AsByteArray.argtypes = [ctypes.py_object, ctypes.c_char_p, ctypes.c_size_t, ctypes.c_int, ctypes.c_int]
 
 parser = argparse.ArgumentParser(description='Slam a Swift endpoint.')
 parser.add_argument('--objects', type=int, default=1, help='Number of objects to upload across all workers.')
@@ -32,29 +38,44 @@ AUTH_TOKEN = kc.auth_token
 SERVICE_URL = kc.service_catalog.url_for(service_type='object-store',
                                          endpoint_type='publicURL')
 
+class PRNGFile:
+    position = 0
+
+    def __init__(self, prng, size):
+        self.prng = prng
+        self.size = size
+
+    def close(self):
+        pass
+
+    def flush(self):
+        pass
+
+    def read(self, size=None):
+        read_length = self.size - self.position
+        if size != None and size < read_length:
+            read_length = size
+        if read_length == 0:
+            return ''
+        self.position += read_length
+        random_data = self.prng.getrandbits(read_length * 8)
+        byte_str = ctypes.create_string_buffer(read_length + 1)
+        PyLong_AsByteArray(random_data, byte_str, len(byte_str), 0, 1)
+        return byte_str.raw
+
+
 def get_client():
     return swiftclient.Connection(preauthurl=SERVICE_URL, preauthtoken=AUTH_TOKEN)
 
-def put_object(sc, fap):
+def put_object(sc, blob):
     object_name = str(uuid.uuid4())
-    sc.put_object(args.container_name, object_name, fap)
-
-
-def get_blob():
-    (fd, fname) = tempfile.mkstemp(prefix='slam', dir='/tmp')
-    fap = open(fname, 'w+b')
-    fap.write(os.urandom(TEST_OBJECT_SIZE))
-    fap.seek(0)
-    return (fap, fname)
-
-
-def reap_blob(blob):
-    blob[0].close()
-    os.unlink(blob[1])
-
+    sc.put_object(args.container_name, object_name, blob)
 
 def nonrandom_worker_func(queue):
-    blob = get_blob()
+    (fd, fname) = tempfile.mkstemp(prefix='slam', dir='/tmp')
+    blob = open(fname, 'w+b')
+    blob.write(os.urandom(TEST_OBJECT_SIZE))
+    blob.seek(0)
 
     while True:
         try:
@@ -63,25 +84,25 @@ def nonrandom_worker_func(queue):
             return
 
         sc = get_client()
-        blob[0].seek(0)
-        put_object(sc, blob[0])
+        blob.seek(0)
+        put_object(sc, blob)
 
-    reap_blob(blob)
+    blob.close()
+    os.unlink(fname)
 
 
 def random_worker_func(queue):
+    prng = random.Random()
     while True:
         try:
             item = queue.get_nowait()
         except Queue.Empty:
             return
 
-        blob = get_blob()
+        prng.seed(item)
+        blob = PRNGFile(prng, TEST_OBJECT_SIZE)
         sc = get_client()
-        put_object(sc, blob[0])
-        reap_blob(blob)
-
-
+        put_object(sc, blob)
 
 # Ensure the test container exists
 sc = get_client()
