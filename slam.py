@@ -11,14 +11,14 @@ import uuid
 import keystoneclient.v2_0.client as keystoneclient
 import swiftclient
 
-# Gotta love StackOverfliw
+# Gotta love StackOverflow
 # http://stackoverflow.com/questions/4358285/is-there-a-faster-way-to-convert-an-arbitrary-large-integer-to-a-big-endian-sequ/4358429#4358429
 PyLong_AsByteArray = ctypes.pythonapi._PyLong_AsByteArray
 PyLong_AsByteArray.argtypes = [ctypes.py_object, ctypes.c_char_p, ctypes.c_size_t, ctypes.c_int, ctypes.c_int]
 
 parser = argparse.ArgumentParser(description='Slam a Swift endpoint.')
 parser.add_argument('--objects', type=int, default=1, help='Number of objects to upload across all workers.')
-parser.add_argument('--object-size', type=float, default=1, help='Size of each object to upload in MB.')
+parser.add_argument('--object-size', default='1', help='Size of each object to upload in MB. Specify a "KB" after the number to use that instead')
 parser.add_argument('--workers', type=int, default=1, help='Number of parallel processes to utilize.')
 parser.add_argument('--random', action='store_true', default=False,
                     help='Generate random data for every object. Otherwise, each worker will use the same random data for each object it uploads.')
@@ -29,7 +29,14 @@ AUTH_USER = os.getenv('OS_USERNAME')
 AUTH_PASSWORD = os.getenv('OS_PASSWORD')
 AUTH_TENANT_NAME = os.getenv('OS_TENANT_NAME')
 AUTH_URL = os.getenv('OS_AUTH_URL')
-TEST_OBJECT_SIZE = int(args.object_size * 1024 * 1024)
+# Parse argument for object size
+MAGNITUDE = 1024 * 1024
+if args.object_size.endswith('KB'):
+    args.object_size = args.object_size[:-2]
+    MAGNITUDE = 1024
+elif args.object_size.endswith('MB'):
+    args.object_size = args.object_size[:-2]
+TEST_OBJECT_SIZE = int(args.object_size) * MAGNITUDE
 
 kc = keystoneclient.Client(username=AUTH_USER, password=AUTH_PASSWORD,
                            tenant_name=AUTH_TENANT_NAME, auth_url=AUTH_URL)
@@ -134,4 +141,4 @@ for proc in procs:
 time_taken = time.time() - time_start
 print '%d objects uploaded in %.2f seconds' % (args.objects, time_taken)
 print 'Transactions per second: %.2f' % (args.objects/time_taken)
-print 'Throughput (mb/s) %.2f' % (args.objects * args.object_size / time_taken)
+print 'Throughput: %.2f MB/s' % (args.objects * (float(TEST_OBJECT_SIZE) / (1024*1024)) / time_taken)
