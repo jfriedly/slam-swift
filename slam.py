@@ -23,6 +23,7 @@ parser.add_argument('--workers', type=int, default=1, help='Number of parallel p
 parser.add_argument('--random', action='store_true', default=False,
                     help='Generate random data for every object. Otherwise, each worker will use the same random data for each object it uploads.')
 parser.add_argument('--container-name', default='slam', help="Specify the container to load with objects. Defaults to 'slam'")
+parser.add_argument('--custom-urls', default=[], metavar='0.0.0.0', type=str, nargs='+', help="Specify a list of custom urls to use instead of the one returned by keystoneclient here.  Example: --custom urls http://0.0.0.0:XXXX/v1/swift http://127.0.0.1:XXXX/v1/swift")
 args = parser.parse_args()
 
 AUTH_USER = os.getenv('OS_USERNAME')
@@ -76,7 +77,10 @@ def get_client():
 
 def put_object(sc, blob):
     object_name = str(uuid.uuid4())
-    sc.put_object(args.container_name, object_name, blob)
+    if args.custom_urls:
+        sc.url = random.choice(args.custom_urls)
+    sc.put_object(args.container_name, object_name, blob,
+                  content_length=TEST_OBJECT_SIZE)
 
 def nonrandom_worker_func(queue):
     (fd, fname) = tempfile.mkstemp(prefix='slam', dir='/tmp')
